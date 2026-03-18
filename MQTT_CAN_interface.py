@@ -148,41 +148,41 @@ class CAN_Listener (can.Listener):
             
             topic = conv[path[0]][path[1]]['topic']
        
-        # payload translation
-        payload = {}
-        n = 0
-        for field, value in conv[path[0]][path[1]]["data"].items():
-            if value == 'int':
-                payload[field] = message[n]
-                n+=1
-            if value == 'int16':
-                payload[field] = int(f"{message[n]}{message[n+1][2:4]}", 0)
-                n+=2
-            elif value == 'bool': # for boolean : 1=True and 0=False
-                if message[n] == 1:
-                    payload[field] = 'true'
-                else :
-                    payload[field] = 'false'
-                n+=1
-            elif value == 'hex': # decimal to hexadeciaml conversion fromat #0F4A6E for RGB
-                hexa = '#'
-                for i in range (3):
-                    num = hex(message[n]).split('x')[-1].upper() # get hexadecimal value
-                    if len(num) == 1: # add 0 in front of the value if <16, value must be 6 caractére long
-                        num = f'0{num}'
-                    hexa = f"{hexa}{num}"
+            # payload translation
+            payload = {}
+            n = 0
+            for field, value in conv[path[0]][path[1]]["data"].items():
+                if value == 'int':
+                    payload[field] = message[n]
                     n+=1
-                print(hexa)
-                payload[field] = hexa
-            elif isinstance(value, dict):
-                data = self.find_path(conv, 1, (path+["data"]+[field]))
-                payload[field] = data[-1]
-        payload = f'{payload}'
-       
-        self.publish(topic, payload) # publish to MQTT
+                if value == 'int16':
+                    payload[field] = int(f"{message[n]}{message[n+1][2:4]}", 0)
+                    n+=2
+                elif value == 'bool': # for boolean : 1=True and 0=False
+                    if message[n] == 1:
+                        payload[field] = 'true'
+                    else :
+                        payload[field] = 'false'
+                    n+=1
+                elif value == 'hex': # decimal to hexadeciaml conversion fromat #0F4A6E for RGB
+                    hexa = '#'
+                    for i in range (3):
+                        num = hex(message[n]).split('x')[-1].upper() # get hexadecimal value
+                        if len(num) == 1: # add 0 in front of the value if <16, value must be 6 caractére long
+                            num = f'0{num}'
+                        hexa = f"{hexa}{num}"
+                        n+=1
+                    print(hexa)
+                    payload[field] = hexa
+                elif isinstance(value, dict):
+                    data = self.find_path(conv, 1, (path+["data"]+[field]))
+                    payload[field] = data[-1]
+            payload = f'{payload}'
+           
+            self.publish(topic, payload) # publish to MQTT
         
         except Exception as e:
-        print(f"Error in CAN message processing: {e}")
+            print(f"Error in CAN message processing: {e}")
                 
     def find_path(self, data, target, path=None):
         # return path from ditionnaries
@@ -229,7 +229,7 @@ if __name__ == '__main__':
     bus = can.interface.Bus(interface='socketcan', channel='can0', bitrate=500000)
    
     # CORRECTION 6: Chemin absolu direct (pas de Path.cwd())
-    path = '/home/iris/Desktop/CoBien/CO_BIEN_MQTT_Dictionnary/conversion.json' # MQTT/CAN transltion json file
+    path = os.path.join(os.path.dirname(__file__), 'Interface_MQTT_CAN_c/conversion.json') # MQTT/CAN transltion json file
    
     r_mqtt = MQTT_to_CAN(bus, path, "localhost")
     r_can = CAN_to_MQTT(bus, path, "localhost")
