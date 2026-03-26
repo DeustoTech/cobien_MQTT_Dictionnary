@@ -1,4 +1,4 @@
-from threading import Thread
+from threading import Event, Thread
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import json
@@ -37,6 +37,7 @@ class MQTT_to_CAN (Thread): # Conversion from MQTT to CAN
         self.path_conv = path
         self.host = host
         self.disconnect = (False, None)
+        self._stop_event = Event()
    
     # CORRECTION 1: Ajout du paramètre 'properties' pour API v2
     def on_connect (self, client, userdata, flags, reason_code, properties):
@@ -45,6 +46,7 @@ class MQTT_to_CAN (Thread): # Conversion from MQTT to CAN
     # CORRECTION 2: Signature correcte pour on_disconnect API v2
     def on_disconnect (self, client, userdata, disconnect_flags, reason_code, properties): # Return disconnection reasons
         self.disconnect = (True, reason_code)
+        self._stop_event.set()
    
     def on_message (self, client, userdata, msg): # on MQTT message reception
        
@@ -119,8 +121,8 @@ class MQTT_to_CAN (Thread): # Conversion from MQTT to CAN
         client.subscribe("imu/update", qos=1)
 
         # CORRECTION 3: Utiliser self.disconnect[0] au lieu de [1]
-        while not self.disconnect[0]:
-            client.loop_read()
+        while not self._stop_event.is_set():
+            client.loop(timeout=1.0)
        
         print(f"Disconnected: {self.disconnect[1]}")
        
@@ -131,6 +133,10 @@ class CAN_to_MQTT (Thread): # Conversion from CAN to MQTT
         self.can = can
         self.path_conv = path
         self.host = host
+        self._stop_event = Event()
+
+    def stop(self):
+        self._stop_event.set()
    
        
     def run (self):
@@ -139,10 +145,13 @@ class CAN_to_MQTT (Thread): # Conversion from CAN to MQTT
         listener = CAN_Listener(self.path_conv, self.host) # use CAN_Listener class as can listener
         notifier = can.Notifier(self.can, [listener])
         try:
-            while True:
-                time.sleep(1)
+            while not self._stop_event.wait(timeout=1.0):
+                pass
         except KeyboardInterrupt:
             print("Keyboard interrupt")
+            self.stop()
+        finally:
+            notifier.stop()
 
 
 class CAN_Listener (can.Listener):
@@ -182,10 +191,7 @@ class CAN_Listener (can.Listener):
                     payload[field] = (message[n] << 8) | message[n + 1]
                     n += 2
                 elif value == 'bool': # for boolean : 1=True and 0=False
-                    if message[n] == 1:
-                        payload[field] = 'true'
-                    else:
-                        payload[field] = 'false'
+                    payload[field] = message[n] == 1
                     n += 1
                 elif value == 'hex': # decimal to hexadecimal conversion format #0F4A6E for RGB
                     hexa = '#'
@@ -202,8 +208,7 @@ class CAN_Listener (can.Listener):
                     if data:
                         payload[field] = data[-1]
 
-            payload = f'{payload}'
-            self.publish(topic, payload) # publish to MQTT
+            self.publish(topic, json.dumps(payload)) # publish to MQTT
         except Exception as e:
             print(f"Error in CAN message processing: {e}")
                 

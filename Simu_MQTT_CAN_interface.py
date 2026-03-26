@@ -1,4 +1,4 @@
-from threading import Thread
+from threading import Event, Thread
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import json
@@ -35,6 +35,7 @@ class MQTT_to_CAN(Thread):  # Conversion from MQTT to CAN
         self.path_conv = path
         self.host = host
         self.disconnect = (False, None)
+        self._stop_event = Event()
     
     def on_connect(self, client, userdata, flags, reason_code, properties):
         """Fixed callback signature for API version 2"""
@@ -43,6 +44,7 @@ class MQTT_to_CAN(Thread):  # Conversion from MQTT to CAN
     def on_disconnect(self, client, userdata, reason_code, properties):
         """Fixed callback signature for API version 2"""
         self.disconnect = (True, reason_code)
+        self._stop_event.set()
         print(f"Disconnected with reason code: {reason_code}")
     
     def on_message(self, client, userdata, msg):  # on MQTT message reception
@@ -138,7 +140,7 @@ class MQTT_to_CAN(Thread):  # Conversion from MQTT to CAN
             client.subscribe("time/config", qos=1)
             client.subscribe("time/update", qos=1)
 
-            while not self.disconnect[0]:
+            while not self._stop_event.is_set():
                 client.loop(timeout=1.0)
                 
         except Exception as e:
@@ -154,10 +156,10 @@ class CAN_to_MQTT(Thread):  # Conversion from CAN to MQTT
         self.can = can_bus
         self.path_conv = path
         self.host = host
-        self.running = True
+        self._stop_event = Event()
 
     def stop(self):
-        self.running = False
+        self._stop_event.set()
         
     def run(self):
         try:
@@ -165,11 +167,12 @@ class CAN_to_MQTT(Thread):  # Conversion from CAN to MQTT
             listener = CAN_Listener(self.path_conv, self.host)  # use CAN_Listener class as can listener
             notifier = can.Notifier(self.can, [listener])
             
-            while self.running:
-                time.sleep(1)
+            while not self._stop_event.wait(timeout=1.0):
+                pass
                 
         except KeyboardInterrupt:
             print("CAN to MQTT thread interrupted")
+            self.stop()
         except Exception as e:
             print(f"CAN to MQTT error: {e}")
         finally:
