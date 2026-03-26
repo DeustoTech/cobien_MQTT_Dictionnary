@@ -13,6 +13,9 @@ DEFAULT_CONVERSION_CANDIDATES = (
     Path(__file__).resolve().parent / "Interface_MQTT_CAN_c" / "conversion.json",
     Path("/home/iris/Desktop/CoBien/CO_BIEN_MQTT_Dictionnary/conversion.json"),
 )
+DEFAULT_MQTT_HOST = os.getenv("COBIEN_MQTT_HOST", "localhost")
+DEFAULT_CAN_INTERFACE = os.getenv("COBIEN_CAN_INTERFACE", "can0")
+DEFAULT_CAN_BITRATE = int(os.getenv("COBIEN_CAN_BITRATE", "500000"))
 
 
 def resolve_conversion_path():
@@ -235,16 +238,16 @@ class CAN_Listener (can.Listener):
 
 if __name__ == '__main__':
     # can periferal initialisation
-    os.system('sudo ip link set can0 down') # sudo ifconfig can0 down
-    os.system('sudo ip link set can0 type can bitrate 500000') # sudo ip link set can0 type can bitrate 1000000
-    os.system('sudo ip link set can0 up') # sudo ifconfig can0 up
+    os.system(f'sudo ip link set {DEFAULT_CAN_INTERFACE} down') # sudo ifconfig can0 down
+    os.system(f'sudo ip link set {DEFAULT_CAN_INTERFACE} type can bitrate {DEFAULT_CAN_BITRATE}') # sudo ip link set can0 type can bitrate 1000000
+    os.system(f'sudo ip link set {DEFAULT_CAN_INTERFACE} up') # sudo ifconfig can0 up
 
-    bus = can.interface.Bus(interface='socketcan', channel='can0', bitrate=500000)
+    bus = can.interface.Bus(interface='socketcan', channel=DEFAULT_CAN_INTERFACE, bitrate=DEFAULT_CAN_BITRATE)
    
     path = resolve_conversion_path()
    
-    r_mqtt = MQTT_to_CAN(bus, path, "localhost")
-    r_can = CAN_to_MQTT(bus, path, "localhost")
+    r_mqtt = MQTT_to_CAN(bus, path, DEFAULT_MQTT_HOST)
+    r_can = CAN_to_MQTT(bus, path, DEFAULT_MQTT_HOST)
    
     r_mqtt.start()
     r_can.start()

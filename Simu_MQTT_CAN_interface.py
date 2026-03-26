@@ -13,6 +13,7 @@ DEFAULT_CONVERSION_CANDIDATES = (
     Path(__file__).resolve().parent / "Interface_MQTT_CAN_c" / "conversion.json",
     Path("/home/iris/Desktop/CoBien/CO_BIEN_MQTT_Dictionnary/conversion.json"),
 )
+DEFAULT_MQTT_HOST = os.getenv("COBIEN_MQTT_HOST", "localhost")
 
 
 def resolve_conversion_path():
@@ -288,8 +289,8 @@ if __name__ == '__main__':
         print("Please update the path to your conversion.json file")
         exit(1)
     
-    r_mqtt = MQTT_to_CAN(bus, path, "localhost")
-    r_can = CAN_to_MQTT(bus, path, "localhost")
+    r_mqtt = MQTT_to_CAN(bus, path, DEFAULT_MQTT_HOST)
+    r_can = CAN_to_MQTT(bus, path, DEFAULT_MQTT_HOST)
     
     try:
         r_mqtt.start()
