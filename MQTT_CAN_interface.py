@@ -214,17 +214,12 @@ class CAN_Listener (can.Listener):
 
 
 if __name__ == '__main__':
-    from pathlib import Path
     import os
    
     # can periferal initialisation
     os.system('sudo ip link set can0 down') # sudo ifconfig can0 down
     os.system('sudo ip link set can0 type can bitrate 500000') # sudo ip link set can0 type can bitrate 1000000
     os.system('sudo ip link set can0 up') # sudo ifconfig can0 up
-   
-    can_filters = [
-    {"can_id": 0x1310, "can_mask": 0x0, "extended": False},
-    ]
 
     bus = can.interface.Bus(interface='socketcan', channel='can0', bitrate=500000)
    
@@ -239,4 +234,3 @@ if __name__ == '__main__':
    
     r_mqtt.join()
     r_can.join()
-

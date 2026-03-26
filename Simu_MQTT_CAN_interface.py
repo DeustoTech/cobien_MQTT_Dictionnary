@@ -259,10 +259,6 @@ if __name__ == '__main__':
     # For software testing - use virtual CAN interface
     print("Initializing virtual CAN interface for software testing...")
     
-    can_filters = [
-        {"can_id": 0x1310, "can_mask": 0x0, "extended": False},
-    ]
-    
     # Use virtual CAN interface for software testing
     bus = can.interface.Bus(interface='virtual')
     print("Virtual CAN interface initialized successfully")
