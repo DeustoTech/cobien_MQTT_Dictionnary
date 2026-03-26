@@ -1,0 +1,3 @@
+# Direct runtime dependencies for the Python MQTT/CAN bridge tooling.
+paho-mqtt==2.1.0
+python-can==4.6.1
