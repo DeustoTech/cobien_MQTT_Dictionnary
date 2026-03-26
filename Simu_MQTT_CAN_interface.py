@@ -2,9 +2,29 @@ from threading import Thread
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import json
+import os
+from pathlib import Path
 import can
 import can.interface
 import time
+
+
+DEFAULT_CONVERSION_CANDIDATES = (
+    Path(__file__).resolve().parent / "Interface_MQTT_CAN_c" / "conversion.json",
+    Path("/home/iris/Desktop/CoBien/CO_BIEN_MQTT_Dictionnary/conversion.json"),
+)
+
+
+def resolve_conversion_path():
+    env_path = os.getenv("COBIEN_CONVERSION_PATH")
+    if env_path:
+        return Path(env_path)
+
+    for candidate in DEFAULT_CONVERSION_CANDIDATES:
+        if candidate.exists():
+            return candidate
+
+    return DEFAULT_CONVERSION_CANDIDATES[0]
 
 
 class MQTT_to_CAN(Thread):  # Conversion from MQTT to CAN
@@ -253,9 +273,6 @@ class CAN_Listener(can.Listener):
 
 
 if __name__ == '__main__':
-    from pathlib import Path
-    import os
-    
     # For software testing - use virtual CAN interface
     print("Initializing virtual CAN interface for software testing...")
     
@@ -263,8 +280,7 @@ if __name__ == '__main__':
     bus = can.interface.Bus(interface='virtual')
     print("Virtual CAN interface initialized successfully")
 
-    # Update path to your actual conversion file
-    path = Path.cwd() / '/home/iris/Desktop/CoBien/CO_BIEN_MQTT_Dictionnary/conversion.json'  # MQTT/CAN translation json file
+    path = resolve_conversion_path()
     
 
     if not path.exists():

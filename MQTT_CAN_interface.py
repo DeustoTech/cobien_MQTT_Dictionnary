@@ -2,9 +2,29 @@ from threading import Thread
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import json
+import os
+from pathlib import Path
 import can
 import can.interface
 import time
+
+
+DEFAULT_CONVERSION_CANDIDATES = (
+    Path(__file__).resolve().parent / "Interface_MQTT_CAN_c" / "conversion.json",
+    Path("/home/iris/Desktop/CoBien/CO_BIEN_MQTT_Dictionnary/conversion.json"),
+)
+
+
+def resolve_conversion_path():
+    env_path = os.getenv("COBIEN_CONVERSION_PATH")
+    if env_path:
+        return env_path
+
+    for candidate in DEFAULT_CONVERSION_CANDIDATES:
+        if candidate.exists():
+            return str(candidate)
+
+    return str(DEFAULT_CONVERSION_CANDIDATES[0])
 
 
 class MQTT_to_CAN (Thread): # Conversion from MQTT to CAN
@@ -214,8 +234,6 @@ class CAN_Listener (can.Listener):
 
 
 if __name__ == '__main__':
-    import os
-   
     # can periferal initialisation
     os.system('sudo ip link set can0 down') # sudo ifconfig can0 down
     os.system('sudo ip link set can0 type can bitrate 500000') # sudo ip link set can0 type can bitrate 1000000
@@ -223,8 +241,7 @@ if __name__ == '__main__':
 
     bus = can.interface.Bus(interface='socketcan', channel='can0', bitrate=500000)
    
-    # CORRECTION 6: Chemin absolu direct (pas de Path.cwd())
-    path = '/home/iris/Desktop/CoBien/CO_BIEN_MQTT_Dictionnary/conversion.json' # MQTT/CAN transltion json file
+    path = resolve_conversion_path()
    
     r_mqtt = MQTT_to_CAN(bus, path, "localhost")
     r_can = CAN_to_MQTT(bus, path, "localhost")
