@@ -1,6 +1,6 @@
-
 Interface_MQTT_CAN_c/build/*
 Interface_MQTT_CAN_c/html/*
 Interface_MQTT_CAN_c/cobien_bridge
-
+__pycache__/
+*.py[cod]
 
