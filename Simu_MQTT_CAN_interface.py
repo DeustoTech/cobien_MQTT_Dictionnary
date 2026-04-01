@@ -11,7 +11,6 @@ import time
 
 DEFAULT_CONVERSION_CANDIDATES = (
     Path(__file__).resolve().parent / "Interface_MQTT_CAN_c" / "conversion.json",
-    Path("/home/iris/Desktop/CoBien/CO_BIEN_MQTT_Dictionnary/conversion.json"),
 )
 DEFAULT_MQTT_HOST = os.getenv("COBIEN_MQTT_HOST", "localhost")
 
