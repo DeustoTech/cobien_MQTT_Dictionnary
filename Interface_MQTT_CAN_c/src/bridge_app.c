@@ -154,9 +154,10 @@ bool my_loop(void)
     if (!g_running) return false;
 
     if (g_mqtt.mosq)
-        mosquitto_loop(g_mqtt.mosq, 0, 100);
+        mosquitto_loop(g_mqtt.mosq, 20, 1);
 
     can_poll(&g_can, &g_table, &g_mqtt, 8);
+    usleep(1000);
 
     return true;
 }
