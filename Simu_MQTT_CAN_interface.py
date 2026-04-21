@@ -27,6 +27,11 @@ def resolve_conversion_path():
     return DEFAULT_CONVERSION_CANDIDATES[0]
 
 
+def _load_conversion(path) -> dict:
+    with open(str(path), 'r') as f:
+        return json.load(f)
+
+
 class MQTT_to_CAN(Thread):  # Conversion from MQTT to CAN
     def __init__(self, can_bus, path: str, host: str = 'localhost'):
         super().__init__()
@@ -35,6 +40,7 @@ class MQTT_to_CAN(Thread):  # Conversion from MQTT to CAN
         self.host = host
         self.disconnect = (False, None)
         self._stop_event = Event()
+        self.conv = _load_conversion(path)
     
     def on_connect(self, client, userdata, flags, reason_code, properties):
         """Fixed callback signature for API version 2"""
@@ -53,40 +59,47 @@ class MQTT_to_CAN(Thread):  # Conversion from MQTT to CAN
             message = json.loads(message)
             keys = list(message.keys())  # get all the key from the json
             
-            with open(self.path_conv, 'r') as CONV:
-                conv = json.load(CONV)
-            
+            conv = self.conv
+
             # translation from MQTT to CAN
             topic = msg.topic.split('/')  # extract the key for the translation from the topic
-            
+
             if len(topic) < 2:
                 print(f"Invalid topic format: {msg.topic}")
                 return
-                
+
             if topic[0] not in conv or topic[1] not in conv[topic[0]]:
                 print(f"Topic not found in conversion table: {msg.topic}")
                 return
-                
-            arbitration_id = conv[topic[0]][topic[1]]['arbitration_id']
+
+            entry = conv[topic[0]][topic[1]]
+            arbitration_id = entry['arbitration_id']
             payload = []
-            
+
             for i in range(len(keys)):  # Conversion of the different types of data for CAN
                 value = message[keys[i]]
+                field_type = entry['data'].get(keys[i])
+                if field_type is None:
+                    print(f"Field not in conversion table: {keys[i]}")
+                    continue
                 try:
-                    if conv[topic[0]][topic[1]]['data'][keys[i]] == 'hex':  # hexadecimal translation for color on 3 bytes
+                    if field_type == 'hex':  # hexadecimal translation for color on 3 bytes
                         payload.append(int(value[1:3], 16))
                         payload.append(int(value[3:5], 16))
                         payload.append(int(value[5:7], 16))
-                    elif conv[topic[0]][topic[1]]['data'][keys[i]] == "int":
-                        payload.append(value)
-                    elif conv[topic[0]][topic[1]]['data'][keys[i]] == "int16":
-                        payload.append((value >> 8) & 0xFF)  # octet haut
-                        payload.append(value & 0xFF)         # octet bas
-                    elif conv[topic[0]][topic[1]]['data'][keys[i]] == "bool":  # for boolean variable : 1=True and 0=False
-                        if value:
-                            payload.append(1)
+                    elif field_type == "int":
+                        payload.append(int(value) & 0xFF)
+                    elif field_type == "int16":
+                        v = int(value)
+                        payload.append((v >> 8) & 0xFF)
+                        payload.append(v & 0xFF)
+                    elif field_type == "bool":  # for boolean variable : 1=True and 0=False
+                        payload.append(1 if value else 0)
+                    elif isinstance(field_type, dict):
+                        if value in field_type:
+                            payload.append(int(field_type[value]))
                         else:
-                            payload.append(0)
+                            print(f"Enum value not found: {value} for field {keys[i]}")
                     else:
                         print(f'Unidentified variable type: {keys[i]}')
                 except Exception as e:
@@ -181,22 +194,20 @@ class CAN_to_MQTT(Thread):  # Conversion from CAN to MQTT
 
 
 class CAN_Listener(can.Listener):
-    
+
     def __init__(self, path, host: str = 'localhost'):
         super().__init__()
         self.host = host
         self.path_conv = path
-    
+        self.conv = _load_conversion(path)
+
     def on_message_received(self, msg):  # function executed on can message reception
         try:
             # extract id and payload
             arbitration_id = msg.arbitration_id
             message = msg.data
-            
-            # find MQTT corresponding topic
-            with open(self.path_conv, 'r') as CONV:  # open conversion file
-                conv = json.load(CONV)
-            
+
+            conv = self.conv
             path = self.find_path(conv, arbitration_id)
             if not path:
                 print(f"No conversion found for CAN ID: {arbitration_id:X}")
@@ -237,9 +248,9 @@ class CAN_Listener(can.Listener):
                     else:
                         break
                 elif isinstance(value, dict):
-                    data = self.find_path(conv, 1, (path + ["data"] + [field]))
-                    if data:
-                        payload[field] = data[-1]
+                    inv = {v: k for k, v in value.items()}
+                    payload[field] = inv.get(message[n], message[n])
+                    n += 1
             
             payload_json = json.dumps(payload)
             self.publish(topic, payload_json)  # publish to MQTT
@@ -297,17 +308,20 @@ if __name__ == '__main__':
     try:
         r_mqtt.start()
         r_can.start()
-        
+
         print("MQTT-CAN interface started. Press Ctrl+C to stop...")
-        
-        r_mqtt.join()
-        r_can.join()
-        
+
+        r_mqtt.join(timeout=None)
+        r_can.join(timeout=None)
+
     except KeyboardInterrupt:
         print("\nShutting down...")
         r_can.stop()
     except Exception as e:
         print(f"Error: {e}")
     finally:
+        r_mqtt.join(timeout=5)
+        r_can.join(timeout=5)
         if bus:
             bus.shutdown()
+        print("Shutdown complete")
