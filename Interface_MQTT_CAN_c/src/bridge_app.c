@@ -157,7 +157,12 @@ bool my_loop(void)
         mosquitto_loop(g_mqtt.mosq, 20, 1);
 
     can_poll(&g_can, &g_table, &g_mqtt, 8);
-    usleep(1000);
+    {
+        struct timespec pause_time;
+        pause_time.tv_sec = 0;
+        pause_time.tv_nsec = 1000000L; /* 1 ms */
+        nanosleep(&pause_time, NULL);
+    }
 
     return true;
 }
