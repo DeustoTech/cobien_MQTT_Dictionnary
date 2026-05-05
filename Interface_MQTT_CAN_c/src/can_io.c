@@ -205,6 +205,13 @@ can_poll (can_ctx_t *c, const table_t *t, mqtt_ctx_t *m, int max_frames)
           if (errno == EAGAIN || errno == EWOULDBLOCK)
             break;
           LOGW ("CAN read: %s", strerror (errno));
+          /* Si l'interface a disparu / I/O error, fermer et demander ré-init externellement */
+          if (errno == ENODEV || errno == ENETDOWN || errno == EIO || errno == EBADF)
+            {
+              LOGW ("CAN socket appears dead (errno=%d), cleaning up", errno);
+              can_cleanup (c);
+              return; /* retour vers la boucle principale qui pourra retenter can_init */
+            }
           break;
         }
       if ((size_t) n != sizeof (f))

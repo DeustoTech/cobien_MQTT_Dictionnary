@@ -152,11 +152,43 @@ bool my_setup(const char *cfg_path) {
 bool my_loop(void)
 {
     if (!g_running) return false;
-
-    if (g_mqtt.mosq)
-        mosquitto_loop(g_mqtt.mosq, 20, 1);
+    /* MQTT: use mqtt_poll wrapper and attempt reconnection on failure */
+    if (g_mqtt.mosq) {
+        if (!mqtt_poll(&g_mqtt)) {
+            LOGW("MQTT loop error, attempting reconnect");
+            /* try to preserve userdata pointer */
+            void *ud = mosquitto_userdata(g_mqtt.mosq);
+            mqtt_cleanup(&g_mqtt);
+            sleep(1);
+            if (mqtt_init(&g_mqtt, MQTT_HOST, MQTT_PORT, 60)) {
+                /* restore userdata and subscription */
+                if (ud) {
+                    /* userdata struct contains pointers and must be updated */
+                    struct { const table_t *t; can_ctx_t *c; mqtt_ctx_t *m; } *ub = (void *) ud;
+                    ub->m = &g_mqtt;
+                    mqtt_set_user_data(&g_mqtt, ub);
+                }
+                mqtt_set_qos(&g_mqtt, 1, 1);
+                if (!mqtt_subscribe_all_nolocal(&g_mqtt))
+                    LOGW("mqtt_subscribe_all_nolocal failed after reconnect");
+                else
+                    LOGI("MQTT reinitialized and subscribed");
+            } else {
+                LOGW("mqtt_init failed during reconnect");
+            }
+        }
+    }
 
     can_poll(&g_can, &g_table, &g_mqtt, 8);
+
+    /* If CAN socket was cleaned up due to error, attempt re-init here */
+    if (g_can.fd < 0 && g_running) {
+        LOGW("CAN fd closed; attempting re-init for %s", IFNAME);
+        if (can_init(&g_can, IFNAME))
+            LOGI("CAN interface %s re-initialized", IFNAME);
+        else
+            LOGW("CAN re-init failed for %s", IFNAME);
+    }
     {
         struct timespec pause_time;
         pause_time.tv_sec = 0;
