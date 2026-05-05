@@ -136,10 +136,17 @@ on_connect (struct mosquitto *m, void *ud, int rc)
 {
   (void) m;
   (void) ud;
-  if (rc == 0)
+  if (rc == 0) {
+    /* marquer état connecté si possible */
+    if (ud) {
+      user_bundle_t *ub = (user_bundle_t *) ud;
+      if (ub->mqtt)
+        ub->mqtt->connected = 1;
+    }
     LOGI ("MQTT connecté %c", 0);
-  else
+  } else {
     LOGW ("MQTT connect rc=%d", rc);
+  }
 }
 
 /**
@@ -154,7 +161,11 @@ static void
 on_disconnect (struct mosquitto *m, void *ud, int rc)
 {
   (void) m;
-  (void) ud;
+  if (ud) {
+    user_bundle_t *ub = (user_bundle_t *) ud;
+    if (ub->mqtt)
+      ub->mqtt->connected = 0;
+  }
   LOGW ("MQTT déconnecté rc=%d", rc);
 }
 
@@ -259,6 +270,7 @@ mqtt_init (mqtt_ctx_t *ctx, const char *host, int port, int keepalive)
   memset (ctx, 0, sizeof (*ctx));
   ctx->qos_pub = 1;
   ctx->qos_sub = 1;
+  ctx->connected = 0;
 
   mosquitto_lib_init ();
   ctx->mosq = mosquitto_new (NULL, true, NULL);

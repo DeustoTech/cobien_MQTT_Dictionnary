@@ -11,6 +11,7 @@ typedef struct mqtt_ctx_s {
   struct mosquitto *mosq;
   int qos_sub;  /* 0..2 (def 1) */
   int qos_pub;  /* 0..2 (def 1) */
+  int connected; /* 0 = disconnected, 1 = connected */
 } mqtt_ctx_t;
 
 /* Init MQTT (v5 + no_local), callbacks installées mais pas de thread lancé */
