@@ -143,7 +143,7 @@ on_connect (struct mosquitto *m, void *ud, int rc)
       if (ub->mqtt)
         ub->mqtt->connected = 1;
     }
-    LOGI ("MQTT connecté %c", 0);
+    LOGI ("MQTT connected %c", 0);
   } else {
     LOGW ("MQTT connect rc=%d", rc);
   }
@@ -166,7 +166,7 @@ on_disconnect (struct mosquitto *m, void *ud, int rc)
     if (ub->mqtt)
       ub->mqtt->connected = 0;
   }
-  LOGW ("MQTT déconnecté rc=%d", rc);
+  LOGW ("MQTT disconnected rc=%d", rc);
 }
 
 /**
@@ -219,7 +219,7 @@ on_message (struct mosquitto *m, void *ud, const struct mosquitto_message *msg)
     }
   if (!in)
     {
-      LOGW ("Payload JSON invalide sur %s", msg->topic);
+      LOGW ("Invalid JSON payload on %s", msg->topic);
       return;
     }
 
@@ -229,7 +229,7 @@ on_message (struct mosquitto *m, void *ud, const struct mosquitto_message *msg)
   cJSON_Delete (in);
   if (!ok_body)
     {
-      LOGE ("Pack échoué pour topic %s", base);
+      LOGE ("Packing failed for topic %s", base);
       return;
     }
 
@@ -242,7 +242,7 @@ on_message (struct mosquitto *m, void *ud, const struct mosquitto_message *msg)
   /* Envoi sur le bus CAN */
   if (!can_send (ub->can, BRIDGE_TUNNEL_CANID, out8))
     {
-      LOGE ("Envoi CAN échoué (transport=0x%X, inner_id=0x%X)", BRIDGE_TUNNEL_CANID, e->can_id);
+      LOGE ("CAN send failed (transport=0x%X, inner_id=0x%X)", BRIDGE_TUNNEL_CANID, e->can_id);
       return;
     }
   LOGI ("MQTT->CAN OK topic=%s transport=0x%X inner_id=0x%X", base, BRIDGE_TUNNEL_CANID, e->can_id);
@@ -417,7 +417,7 @@ mqtt_handle_can_message (mqtt_ctx_t *ctx, const entry_t *e, const uint8_t data[8
   cJSON *obj = unpack_payload (data, e);
   if (!obj)
     {
-      LOGE ("Unpack échoué id=0x%X", e->can_id);
+      LOGE ("Unpack failed id=0x%X", e->can_id);
       return false;
     }
   char *out = cJSON_PrintUnformatted (obj);
@@ -433,7 +433,7 @@ mqtt_handle_can_message (mqtt_ctx_t *ctx, const entry_t *e, const uint8_t data[8
   if (ok)
     LOGI ("CAN->MQTT OK id=0x%X topic=%s", e->can_id, e->topic);
   else
-    LOGE ("CAN->MQTT publish échoué topic=%s", e->topic);
+    LOGE ("CAN->MQTT publish failed topic=%s", e->topic);
   return ok;
 }
 
