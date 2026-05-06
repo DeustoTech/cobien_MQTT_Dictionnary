@@ -244,6 +244,11 @@ void my_shutdown(void) {
 
 int main(int argc, char **argv)
 {
+    /* Force line-buffered stdout so log lines appear immediately even when
+       stdout is redirected to a pipe (default is fully-buffered in that case). */
+    setvbuf(stdout, NULL, _IOLBF, 0);
+    setvbuf(stderr, NULL, _IOLBF, 0);
+
     const char *cfg_path = (argc > 1) ? argv[1] : "config/conversion.json";
 
     if (!my_setup(cfg_path))
