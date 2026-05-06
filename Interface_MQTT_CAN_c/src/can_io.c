@@ -117,7 +117,7 @@ can_init (can_ctx_t *c, const char *ifname)
   /* Mode non bloquant */
   if (!set_nonblock (fd))
     {
-      LOGW ("fcntl(O_NONBLOCK) échoué (socket bloquant) %c", 0);
+      LOGW ("fcntl(O_NONBLOCK) failed (socket blocking) %c", 0);
     }
 
   /* Agrandir les buffers de réception/émission */

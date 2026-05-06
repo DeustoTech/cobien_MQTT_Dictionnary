@@ -269,7 +269,7 @@ bool table_load(table_t *t, const char *json_path){
 
   t->entries     = arr;
   t->entry_count = n;
-  LOGI("Table chargée: %zu topics, %zu IDs", n, n);
+  LOGI("Table loaded: %zu topics, %zu IDs", n, n);
 
   return (n > 0);
 }
